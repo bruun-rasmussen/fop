@@ -110,7 +110,34 @@ public class InternalResourceResolver {
      * @return the resolved URI
      */
     public URI resolveFromBase(URI uri) {
-        return baseUri.resolve(uri);
+        return resolveFrom(baseUri, uri);
+    }
+
+    private static URI resolveFrom(URI baseUri, URI uri) {
+        if (uri == null)
+            return baseUri;
+        else if (uri.isAbsolute())
+            return uri;
+
+        // this really ought to be just a simple baseUri.resolve(uri), but because of
+        // https://bugs.openjdk.java.net/browse/JDK-8020755 we may need to do a bit of
+        // work(-around):
+        String scheme = baseUri.getScheme();
+        String root = baseUri.getRawSchemeSpecificPart();
+        int slashPos = root.lastIndexOf('/');
+        if (slashPos >= 0)
+            root = root.substring(0, slashPos + 1);
+        if (root.endsWith("."))
+            root += "/";
+
+        String fragment = uri.getFragment();
+        String path = uri.getPath();
+
+        try {
+            return new URI(scheme, root + path, fragment).normalize();
+        } catch (URISyntaxException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     /**
